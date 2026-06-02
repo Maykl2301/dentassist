@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Dentists — {{ patient.full_name }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg:#f0f4f8;--surface:#fff;--border:#e2e8f0;--accent:#0ea5e9;--text:#0f172a;--text2:#475569;--text3:#94a3b8;--shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.04); }
+  body { font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text); }
+  .sidebar { position:fixed;top:0;left:0;width:240px;height:100vh;background:#0f172a;display:flex;flex-direction:column; }
+  .sidebar-logo { padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,.08); }
+  .logo-icon { width:40px;height:40px;background:#0ea5e9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:10px; }
+  .logo-name { font-size:15px;font-weight:700;color:#fff; }
+  .sidebar-nav { padding:16px 12px;flex:1; }
+  .nav-link { display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:rgba(255,255,255,.6);text-decoration:none;font-size:13.5px;font-weight:500;margin-bottom:2px;transition:all .15s; }
+  .nav-link:hover { background:rgba(255,255,255,.08);color:#fff; }
+  .main { margin-left:240px;padding:32px; }
+  .back-link { display:inline-flex;align-items:center;gap:6px;color:var(--text2);text-decoration:none;font-size:13px;font-weight:600;margin-bottom:20px;padding:6px 12px;background:var(--surface);border-radius:8px;border:1px solid var(--border); }
+  .back-link:hover { background:#f8fafc; }
+  .profile-card { background:var(--surface);border-radius:14px;padding:24px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:24px;display:flex;align-items:center;gap:20px; }
+  .avatar { width:64px;height:64px;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:800;flex-shrink:0; }
+  .profile-name { font-size:22px;font-weight:800;margin-bottom:4px; }
+  .profile-meta { font-size:13px;color:var(--text2); }
+  .section-title { font-size:17px;font-weight:700;margin-bottom:14px; }
+  .history-table { background:var(--surface);border-radius:14px;box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden; }
+  table { width:100%;border-collapse:collapse; }
+  thead th { padding:12px 16px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;background:#f8fafc;border-bottom:1px solid var(--border);text-align:left; }
+  tbody tr { border-bottom:1px solid var(--border); }
+  tbody tr:last-child { border-bottom:none; }
+  tbody td { padding:13px 16px;font-size:13.5px; }
+  .badge { display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700; }
+  .badge-green { background:#d1fae5;color:#065f46; }
+  .badge-blue { background:#dbeafe;color:#1d4ed8; }
+  .badge-orange { background:#fef3c7;color:#92400e; }
+  .badge-red { background:#fee2e2;color:#991b1b; }
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon">🦷</div><div class="logo-name">Family Dentists</div></div>
+  <nav class="sidebar-nav">
+    <a href="/" class="nav-link"><span>📊</span> Дашборд</a>
+    <a href="/calendar" class="nav-link"><span>📅</span> Календар</a>
+    <a href="/patients" class="nav-link"><span>👥</span> Пацієнти</a>
+  </nav>
+</aside>
+<main class="main">
+  <a href="/patients" class="back-link">← Назад до пацієнтів</a>
+
+  <div class="profile-card">
+    <div class="avatar">{{ patient.full_name[0] }}</div>
+    <div>
+      <div class="profile-name">{{ patient.full_name }}</div>
+      <div class="profile-meta">
+        {% if patient.phone %}📞 {{ patient.phone }}  •  {% endif %}
+        Пацієнт з {{ patient.created_at[:10] }}
+      </div>
+      {% if patient.notes %}
+      <div style="margin-top:8px;font-size:13px;color:#475569;background:#f8fafc;padding:6px 10px;border-radius:6px">
+        📝 {{ patient.notes }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="section-title">Історія візитів ({{ history|length }})</div>
+
+  {% if history %}
+  <div class="history-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Час</th>
+          <th>Лікар</th>
+          <th>Причина</th>
+          <th>Статус</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td style="font-weight:600">{{ h.date }}</td>
+          <td>{{ h.time }}</td>
+          <td style="color:#0369a1;font-weight:500">{{ h.doctor_name }}</td>
+          <td style="color:#475569">{{ h.reason or '—' }}</td>
+          <td>
+            {% if h.status == 'done' %}<span class="badge badge-green">✔ Виконано</span>
+            {% elif h.status == 'confirmed' %}<span class="badge badge-blue">Підтверджено</span>
+            {% elif h.status == 'pending' %}<span class="badge badge-orange">Очікує</span>
+            {% elif h.status == 'cancelled' %}<span class="badge badge-red">Скасовано</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:40px;color:var(--text3)">Немає записів в історії</div>
+  {% endif %}
+</main>
+</body>
+</html>

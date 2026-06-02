@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Dentists — Адмін панель</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --surface2: #f8fafc;
+    --border: #e2e8f0;
+    --accent: #0ea5e9;
+    --accent2: #06b6d4;
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --purple: #8b5cf6;
+    --text: #0f172a;
+    --text2: #475569;
+    --text3: #94a3b8;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
+    --shadow-md: 0 4px 6px rgba(0,0,0,.07), 0 10px 30px rgba(0,0,0,.06);
+  }
+
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    position: fixed; top: 0; left: 0;
+    width: 240px; height: 100vh;
+    background: var(--text);
+    padding: 0;
+    display: flex; flex-direction: column;
+    z-index: 100;
+  }
+
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  .logo-name {
+    font-size: 15px; font-weight: 700;
+    color: #fff; line-height: 1.2;
+  }
+
+  .logo-sub {
+    font-size: 11px; color: var(--text3);
+    font-weight: 400;
+  }
+
+  .sidebar-nav {
+    padding: 16px 12px;
+    flex: 1;
+  }
+
+  .nav-section {
+    font-size: 10px; font-weight: 700;
+    color: var(--text3); letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px 8px 4px;
+    margin-bottom: 2px;
+  }
+
+  .nav-link {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    color: rgba(255,255,255,.6);
+    text-decoration: none;
+    font-size: 13.5px; font-weight: 500;
+    transition: all .15s;
+    margin-bottom: 2px;
+  }
+
+  .nav-link:hover, .nav-link.active {
+    background: rgba(255,255,255,.08);
+    color: #fff;
+  }
+
+  .nav-link.active { background: var(--accent); color: #fff; }
+
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+
+  .logout-btn {
+    display: flex; align-items: center; gap: 8px;
+    color: rgba(255,255,255,.5);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color .15s;
+  }
+  .logout-btn:hover { color: rgba(255,255,255,.8); }
+
+  /* ── Main ── */
+  .main {
+    margin-left: 240px;
+    padding: 32px;
+    min-height: 100vh;
+  }
+
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 28px;
+  }
+
+  .page-title {
+    font-size: 24px; font-weight: 800; color: var(--text);
+  }
+
+  .page-date {
+    font-size: 13px; color: var(--text3); font-weight: 500;
+    margin-top: 2px;
+  }
+
+  .header-right {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; border: none;
+    transition: all .15s;
+    font-family: 'Manrope', sans-serif;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #0284c7; transform: translateY(-1px); }
+
+  .btn-ghost {
+    background: var(--surface);
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--surface2); }
+
+  /* ── Stats grid ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-color, var(--accent));
+  }
+
+  .stat-label {
+    font-size: 11px; font-weight: 700;
+    color: var(--text3); text-transform: uppercase;
+    letter-spacing: .8px; margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 32px; font-weight: 800;
+    color: var(--text); line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-sub {
+    font-size: 12px; color: var(--text3);
+  }
+
+  /* ── Appointments ── */
+  .section-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 17px; font-weight: 700;
+  }
+
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+  }
+
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-orange { background: #fef3c7; color: #92400e; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+
+  .appointments-table {
+    background: var(--surface);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    padding: 12px 16px;
+    font-size: 11px; font-weight: 700;
+    color: var(--text3); text-transform: uppercase;
+    letter-spacing: .7px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .1s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  tbody td {
+    padding: 14px 16px;
+    font-size: 13.5px;
+  }
+
+  .time-badge {
+    font-size: 14px; font-weight: 700;
+    color: var(--text);
+    background: var(--bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  .patient-name { font-weight: 600; color: var(--text); }
+  .patient-phone { font-size: 12px; color: var(--text3); margin-top: 1px; }
+
+  .doctor-pill {
+    font-size: 12px; font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #0369a1;
+    display: inline-block;
+  }
+
+  .action-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: none;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    font-family: 'Manrope', sans-serif;
+    transition: all .15s;
+    margin-right: 4px;
+  }
+
+  .action-confirm { background: #d1fae5; color: #065f46; }
+  .action-confirm:hover { background: #a7f3d0; }
+  .action-done { background: #dbeafe; color: #1e40af; }
+  .action-done:hover { background: #bfdbfe; }
+  .action-cancel { background: #fee2e2; color: #991b1b; }
+  .action-cancel:hover { background: #fecaca; }
+
+  .empty-state {
+    padding: 48px;
+    text-align: center;
+    color: var(--text3);
+  }
+
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 15px; font-weight: 500; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.4);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: none; align-items: center; justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 28px;
+    width: 480px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    animation: modalIn .2s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+
+  .form-group { margin-bottom: 14px; }
+
+  .form-label {
+    font-size: 12px; font-weight: 700; color: var(--text2);
+    margin-bottom: 5px; display: block; text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px; font-family: 'Manrope', sans-serif;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+    background: var(--surface);
+  }
+
+  .form-input:focus { border-color: var(--accent); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .modal-actions {
+    display: flex; justify-content: flex-end; gap: 8px;
+    margin-top: 20px;
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--text); color: #fff;
+    padding: 12px 20px; border-radius: 10px;
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    transform: translateY(60px); opacity: 0;
+    transition: all .25s ease;
+    z-index: 9999;
+  }
+  .toast.show { transform: none; opacity: 1; }
+
+  @media (max-width: 900px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .main { padding: 20px; }
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🦷</div>
+    <div class="logo-name">Family Dentists</div>
+    <div class="logo-sub">Панель адміністратора</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Основне</div>
+    <a href="/" class="nav-link active">
+      <span class="nav-icon">📊</span> Дашборд
+    </a>
+    <a href="/calendar" class="nav-link">
+      <span class="nav-icon">📅</span> Календар
+    </a>
+    <a href="/patients" class="nav-link">
+      <span class="nav-icon">👥</span> Пацієнти
+    </a>
+    <div class="nav-section" style="margin-top:12px">Звіти</div>
+    <a href="#" class="nav-link">
+      <span class="nav-icon">📈</span> Статистика
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <a href="/logout" class="logout-btn">
+      <span>🚪</span> Вийти
+    </a>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title">Сьогоднішній день</div>
+      <div class="page-date">{{ today }}, {{ appointments|length }} записів</div>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-ghost" onclick="window.location.reload()">🔄 Оновити</button>
+      <button class="btn btn-primary" onclick="window.location.href='/calendar'">+ Новий запис</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card" style="--card-color: #0ea5e9">
+      <div class="stat-label">Сьогодні</div>
+      <div class="stat-value">{{ stats.today }}</div>
+      <div class="stat-sub">записів на день</div>
+    </div>
+    <div class="stat-card" style="--card-color: #10b981">
+      <div class="stat-label">Виконано</div>
+      <div class="stat-value">{{ stats.done_today }}</div>
+      <div class="stat-sub">прийомів сьогодні</div>
+    </div>
+    <div class="stat-card" style="--card-color: #f59e0b">
+      <div class="stat-label">На тиждень</div>
+      <div class="stat-value">{{ stats.week }}</div>
+      <div class="stat-sub">майбутніх записів</div>
+    </div>
+    <div class="stat-card" style="--card-color: #8b5cf6">
+      <div class="stat-label">Пацієнтів</div>
+      <div class="stat-value">{{ stats.patients }}</div>
+      <div class="stat-sub">у базі даних</div>
+    </div>
+  </div>
+
+  <!-- Appointments -->
+  <div class="section-header">
+    <div class="section-title">Записи на сьогодні</div>
+  </div>
+
+  <div class="appointments-table">
+    {% if appointments %}
+    <table>
+      <thead>
+        <tr>
+          <th>Час</th>
+          <th>Пацієнт</th>
+          <th>Лікар</th>
+          <th>Причина</th>
+          <th>Статус</th>
+          <th>Дії</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in appointments %}
+        <tr id="row-{{ a.id }}">
+          <td><span class="time-badge">{{ a.time }}</span></td>
+          <td>
+            <div class="patient-name">{{ a.full_name }}</div>
+            {% if a.phone %}<div class="patient-phone">📞 {{ a.phone }}</div>{% endif %}
+          </td>
+          <td><span class="doctor-pill">{{ a.doctor_name.split()[0] }} {{ a.doctor_name.split()[1] if a.doctor_name.split()|length > 1 else '' }}</span></td>
+          <td style="color: var(--text2); font-size:13px">{{ a.reason or '—' }}</td>
+          <td>
+            {% if a.status == 'pending' %}
+              <span class="badge badge-orange">Очікує</span>
+            {% elif a.status == 'confirmed' %}
+              <span class="badge badge-blue">Підтверджено</span>
+            {% elif a.status == 'done' %}
+              <span class="badge badge-green">Завершено</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if a.status == 'pending' %}
+            <button class="action-btn action-confirm" onclick="updateStatus({{ a.id }}, 'confirmed')">✅ Підтвердити</button>
+            <button class="action-btn action-cancel" onclick="updateStatus({{ a.id }}, 'cancelled')">✕ Відхилити</button>
+            {% elif a.status == 'confirmed' %}
+            <button class="action-btn action-done" onclick="updateStatus({{ a.id }}, 'done')">✔ Виконано</button>
+            <button class="action-btn action-cancel" onclick="updateStatus({{ a.id }}, 'cancelled')">✕</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <div class="empty-text">На сьогодні записів немає</div>
+    </div>
+    {% endif %}
+  </div>
+</main>
+
+<!-- Modal: Новий запис -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title">📅 Новий запис</div>
+    <div class="form-group">
+      <label class="form-label">Ім'я пацієнта</label>
+      <input type="text" class="form-input" id="inp-name" placeholder="Прізвище Ім'я По-батькові">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Телефон</label>
+      <input type="tel" class="form-input" id="inp-phone" placeholder="+380991234567">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Дата</label>
+        <input type="date" class="form-input" id="inp-date" value="{{ today_raw }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Час</label>
+        <input type="time" class="form-input" id="inp-time" value="09:00">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Лікар</label>
+      <select class="form-input" id="inp-doctor">
+        <option value="1">Коваленко Олена Петрівна — Терапевт</option>
+        <option value="2">Мельник Андрій Васильович — Хірург</option>
+        <option value="3">Бондар Ірина Миколаївна — Ортодонт</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Причина візиту</label>
+      <input type="text" class="form-input" id="inp-reason" placeholder="Консультація, лікування...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveAppointment()">Зберегти запис</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function openModal() {
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function updateStatus(id, status) {
+  const labels = { done: 'виконано', cancelled: 'скасовано' };
+  const res = await fetch(`/api/appointment/${id}/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  });
+  if (res.ok) {
+    showToast(`✅ Запис ${labels[status]}!`);
+    setTimeout(() => window.location.reload(), 1000);
+  }
+}
+
+async function saveAppointment() {
+  const data = {
+    full_name: document.getElementById('inp-name').value,
+    phone: document.getElementById('inp-phone').value,
+    date: document.getElementById('inp-date').value,
+    time: document.getElementById('inp-time').value,
+    doctor_id: parseInt(document.getElementById('inp-doctor').value),
+    reason: document.getElementById('inp-reason').value
+  };
+  if (!data.full_name || !data.phone) {
+    showToast('⚠️ Введіть ім'я та телефон');
+    return;
+  }
+  const res = await fetch('/api/appointment/new', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.ok) {
+    closeModal();
+    showToast('✅ Запис додано!');
+    setTimeout(() => window.location.reload(), 1000);
+  }
+}
+</script>
+</body>
+</html>

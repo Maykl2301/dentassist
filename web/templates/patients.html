@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Dentists — Пацієнти</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f0f4f8; --surface: #fff; --border: #e2e8f0;
+    --accent: #0ea5e9; --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
+  }
+  body { font-family: 'Manrope', sans-serif; background: var(--bg); color: var(--text); }
+  .sidebar { position:fixed; top:0; left:0; width:240px; height:100vh; background:#0f172a; display:flex; flex-direction:column; }
+  .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,.08); }
+  .logo-icon { width:40px;height:40px;background:#0ea5e9;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:10px; }
+  .logo-name { font-size:15px;font-weight:700;color:#fff; }
+  .sidebar-nav { padding:16px 12px; flex:1; }
+  .nav-section { font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;padding:8px 8px 4px;margin-bottom:2px; }
+  .nav-link { display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:rgba(255,255,255,.6);text-decoration:none;font-size:13.5px;font-weight:500;transition:all .15s;margin-bottom:2px; }
+  .nav-link:hover,.nav-link.active { background:rgba(255,255,255,.08);color:#fff; }
+  .nav-link.active { background:#0ea5e9; }
+  .main { margin-left:240px; padding:32px; }
+  .topbar { display:flex;justify-content:space-between;align-items:center;margin-bottom:28px; }
+  .page-title { font-size:24px;font-weight:800; }
+  .search-bar { position:relative;margin-bottom:20px; }
+  .search-input { width:100%;padding:11px 16px 11px 40px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:'Manrope',sans-serif;outline:none;background:var(--surface);transition:border-color .15s; }
+  .search-input:focus { border-color:var(--accent); }
+  .search-icon { position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:16px; }
+  .patients-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px; }
+  .patient-card { background:var(--surface);border-radius:12px;padding:20px;box-shadow:var(--shadow);border:1px solid var(--border);transition:all .15s;cursor:pointer; }
+  .patient-card:hover { transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.1); }
+  .patient-avatar { width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#0ea5e9,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;margin-bottom:12px; }
+  .patient-name { font-size:15px;font-weight:700;margin-bottom:4px; }
+  .patient-phone { font-size:13px;color:var(--text2); }
+  .patient-meta { display:flex;gap:8px;margin-top:12px; }
+  .meta-badge { font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:#f1f5f9;color:var(--text2); }
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🦷</div>
+    <div class="logo-name">Family Dentists</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Основне</div>
+    <a href="/" class="nav-link"><span>📊</span> Дашборд</a>
+    <a href="/calendar" class="nav-link"><span>📅</span> Календар</a>
+    <a href="/patients" class="nav-link active"><span>👥</span> Пацієнти</a>
+  </nav>
+</aside>
+<main class="main">
+  <div class="topbar">
+    <div class="page-title">Пацієнти ({{ patients|length }})</div>
+  </div>
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <input type="text" class="search-input" id="search" placeholder="Пошук за іменем або телефоном..." oninput="filterPatients()">
+  </div>
+  <div class="patients-grid" id="grid">
+    {% for p in patients %}
+    <div class="patient-card" onclick="window.location='/patient/{{ p.id }}'">
+      <div class="patient-avatar">{{ p.full_name[0] }}</div>
+      <div class="patient-name">{{ p.full_name }}</div>
+      <div class="patient-phone">{% if p.phone %}📞 {{ p.phone }}{% else %}Телефон не вказано{% endif %}</div>
+      <div class="patient-meta">
+        <span class="meta-badge">{{ p.visit_count }} візитів</span>
+        {% if p.last_visit %}<span class="meta-badge">Останній: {{ p.last_visit }}</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</main>
+<script>
+function filterPatients() {
+  const q = document.getElementById('search').value.toLowerCase();
+  document.querySelectorAll('.patient-card').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>
