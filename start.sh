@@ -1,2 +1,2 @@
 #!/bin/bash
-gunicorn main:app --bind 0.0.0.0:$PORT
+gunicorn main:app --bind 0.0.0.0:$PORT --worker-class gthread --threads 2

@@ -1,32 +1,40 @@
-"""
-Запускає Flask + Telegram бот в одному процесі
-"""
 import threading
 import asyncio
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# Ініціалізація бази
 import sqlite3
+
+# База даних
 conn = sqlite3.connect('dentist.db')
 conn.executescript(open('db/schema.sql').read())
 conn.commit()
 conn.close()
 print('DB ready')
 
-# Запуск бота в окремому потоці
+# Бот в окремому потоці з власним event loop
 def run_bot():
-    from bot.bot import main
-    asyncio.run(main())
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    os.environ.setdefault('BOT_TOKEN', os.getenv('BOT_TOKEN', ''))
+    
+    from aiogram import Bot, Dispatcher
+    from aiogram.fsm.storage.memory import MemoryStorage
+    
+    # Імпортуємо dp та bot з bot.py
+    import sys
+    sys.path.insert(0, '.')
+    
+    from bot.bot import dp, bot, send_reminders
+    
+    async def start():
+        asyncio.create_task(send_reminders())
+        await dp.start_polling(bot)
+    
+    loop.run_until_complete(start())
 
 bot_thread = threading.Thread(target=run_bot, daemon=True)
 bot_thread.start()
-print('Bot started')
+print('Bot thread started')
 
-# Запуск Flask
 from web.app import app
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
