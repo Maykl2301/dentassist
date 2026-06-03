@@ -226,3 +226,16 @@ def patient_detail(patient_id):
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    import asyncio, json
+    from flask import request
+    from aiogram.types import Update
+    async def process():
+        from bot.bot import dp, bot
+        data = request.get_json()
+        update = Update.model_validate(data, context={"bot": bot})
+        await dp.feed_update(bot, update)
+    asyncio.run(process())
+    return 'ok', 200
