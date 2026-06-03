@@ -784,8 +784,24 @@ async def admin_cancel(callback: CallbackQuery):
 
 async def main():
     init_db()
-    asyncio.create_task(send_reminders())
-    await dp.start_polling(bot)
+    webhook_url = os.getenv("WEBHOOK_URL", "")
+    if webhook_url:
+        from aiohttp import web
+        from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+        asyncio.create_task(send_reminders())
+        await bot.set_webhook(f"{webhook_url}/webhook")
+        app = web.Application()
+        SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path="/webhook")
+        setup_application(app, dp, bot=bot)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        port = int(os.getenv("PORT", 8080))
+        site = web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+        await asyncio.Event().wait()
+    else:
+        asyncio.create_task(send_reminders())
+        await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())

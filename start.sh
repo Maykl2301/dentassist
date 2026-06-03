@@ -1,2 +1,10 @@
 #!/bin/bash
-gunicorn main:app --bind 0.0.0.0:$PORT --worker-class gthread --threads 2
+python -c "
+import sqlite3
+conn = sqlite3.connect('dentist.db')
+conn.executescript(open('db/schema.sql').read())
+conn.commit()
+conn.close()
+print('DB ready')
+"
+python bot/bot.py
