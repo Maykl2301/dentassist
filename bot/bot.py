@@ -6,7 +6,8 @@ Family_dentists — Telegram бот для запису пацієнтів
 
 import asyncio
 import logging
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import os
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, F
@@ -35,102 +36,105 @@ dp = Dispatcher(storage=MemoryStorage())
 # ─── База даних ────────────────────────────────────────────────
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+    conn.autocommit = True
     return conn
 
 def init_db():
-    with open("db/schema.sql", "r", encoding="utf-8") as f:
-        script = f.read()
     conn = get_db()
-    conn.executescript(script)
-    conn.commit()
+    cur = conn.cursor()
+    with open("db/schema.sql", "r", encoding="utf-8") as f:
+        cur.execute(f.read())
     conn.close()
+    print("DB initialized")
 
 def get_or_create_patient(telegram_id: str, full_name: str, phone: str = None):
     conn = get_db()
-    patient = conn.execute(
-        "SELECT * FROM patients WHERE telegram_id = ?", (telegram_id,)
-    ).fetchone()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM patients WHERE telegram_id = %s", (telegram_id,))
+    patient = cur.fetchone()
     if not patient:
-        conn.execute(
-            "INSERT INTO patients (telegram_id, full_name, phone) VALUES (?, ?, ?)",
+        cur.execute(
+            "INSERT INTO patients (telegram_id, full_name, phone) VALUES (%s, %s, %s) RETURNING *",
             (telegram_id, full_name, phone)
         )
-        conn.commit()
-        patient = conn.execute(
-            "SELECT * FROM patients WHERE telegram_id = ?", (telegram_id,)
-        ).fetchone()
+        patient = cur.fetchone()
     conn.close()
     return patient
 
 def get_doctors():
     conn = get_db()
-    doctors = conn.execute(
-        "SELECT * FROM doctors WHERE active = 1"
-    ).fetchall()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM doctors WHERE active = 1")
+    doctors = cur.fetchall()
     conn.close()
     return doctors
 
 def get_available_times(date: str, doctor_id: int):
-    """Повертає список вільних часових слотів"""
     all_slots = [
-        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-        "12:00", "12:30", "14:00", "14:30", "15:00", "15:30",
-        "16:00", "16:30", "17:00", "17:30", "18:00", "18:30"
+        "09:00","09:30","10:00","10:30","11:00","11:30",
+        "12:00","12:30","14:00","14:30","15:00","15:30",
+        "16:00","16:30","17:00","17:30","18:00","18:30"
     ]
     conn = get_db()
-    booked = [row[0] for row in conn.execute(
-        "SELECT time FROM appointments WHERE date = ? AND doctor_id = ? AND status != 'cancelled'",
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT time FROM appointments WHERE date = %s AND doctor_id = %s AND status != 'cancelled'",
         (date, doctor_id)
-    ).fetchall()]
+    )
+    booked = [row[0] for row in cur.fetchall()]
     conn.close()
     return [t for t in all_slots if t not in booked]
 
 def save_appointment(patient_id: int, doctor_id: int, date: str, time: str, reason: str):
     conn = get_db()
-    conn.execute(
-        "INSERT INTO appointments (patient_id, doctor_id, date, time, reason) VALUES (?,?,?,?,?)",
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO appointments (patient_id, doctor_id, date, time, reason) VALUES (%s,%s,%s,%s,%s)",
         (patient_id, doctor_id, date, time, reason)
     )
-    conn.commit()
     conn.close()
 
 def get_patient_appointments(telegram_id: str):
     conn = get_db()
-    rows = conn.execute("""
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
         SELECT a.id, a.date, a.time, a.reason, a.status, d.name as doctor_name
         FROM appointments a
         JOIN patients p ON a.patient_id = p.id
         JOIN doctors d ON a.doctor_id = d.id
-        WHERE p.telegram_id = ?
-          AND a.date >= date('now', 'localtime')
+        WHERE p.telegram_id = %s
+          AND a.date >= CURRENT_DATE::text
           AND a.status != 'cancelled'
         ORDER BY a.date, a.time
-    """, (telegram_id,)).fetchall()
+    """, (telegram_id,))
+    rows = cur.fetchall()
     conn.close()
     return rows
 
 def cancel_appointment(appointment_id: int, telegram_id: str):
     conn = get_db()
-    conn.execute("""
+    cur = conn.cursor()
+    cur.execute("""
         UPDATE appointments SET status = 'cancelled'
-        WHERE id = ? AND patient_id = (
-            SELECT id FROM patients WHERE telegram_id = ?
+        WHERE id = %s AND patient_id = (
+            SELECT id FROM patients WHERE telegram_id = %s
         )
     """, (appointment_id, telegram_id))
-    conn.commit()
     conn.close()
 
 def get_faq_answer(text: str):
     conn = get_db()
-    rows = conn.execute("SELECT keyword, answer FROM faq").fetchall()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT keyword, answer FROM faq")
+    rows = cur.fetchall()
     conn.close()
     text_lower = text.lower()
     for row in rows:
         if row["keyword"] in text_lower:
             return row["answer"]
     return None
+
 
 # ─── FSM стани ────────────────────────────────────────────────
 
@@ -241,7 +245,8 @@ async def start_booking(message: Message, state: FSMContext):
 async def choose_doctor(callback: CallbackQuery, state: FSMContext):
     doctor_id = int(callback.data.split("_")[1])
     conn = get_db()
-    doctor = conn.execute("SELECT * FROM doctors WHERE id = ?", (doctor_id,)).fetchone()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    doctor = cur.execute("SELECT * FROM doctors WHERE id = %s", (doctor_id,)).fetchone()
     conn.close()
     await state.update_data(doctor_id=doctor_id, doctor_name=doctor["name"])
     await state.set_state(BookingState.choosing_date)
@@ -286,8 +291,9 @@ async def enter_reason(message: Message, state: FSMContext):
 
     # Перевіряємо чи є телефон
     conn = get_db()
-    patient = conn.execute(
-        "SELECT phone FROM patients WHERE telegram_id = ?",
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    patient = cur.execute(
+        "SELECT phone FROM patients WHERE telegram_id = %s",
         (str(message.from_user.id),)
     ).fetchone()
     conn.close()
@@ -339,7 +345,8 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
     )
     if phone:
         conn = get_db()
-        conn.execute("UPDATE patients SET phone = ? WHERE id = ?", (phone, patient["id"]))
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("UPDATE patients SET phone = %s WHERE id = %s", (phone, patient["id"]))
         conn.commit()
         conn.close()
 
@@ -357,7 +364,7 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
 
     # Повідомлення адміну з кнопками підтвердження
     conn2 = get_db()
-    appt = conn2.execute("SELECT id FROM appointments WHERE patient_id=? ORDER BY id DESC LIMIT 1", (patient["id"],)).fetchone()
+    appt = conn2.execute("SELECT id FROM appointments WHERE patient_id=%s ORDER BY id DESC LIMIT 1", (patient["id"],)).fetchone()
     conn2.close()
     appt_id = appt["id"] if appt else 0
     for admin_id in ADMIN_IDS:
@@ -471,12 +478,13 @@ async def admin_panel(message: Message):
 
     today = datetime.now().strftime("%Y-%m-%d")
     conn = get_db()
-    appointments = conn.execute("""
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    appointments = cur.execute("""
         SELECT a.time, p.full_name, p.phone, d.name as doctor_name, a.status, a.reason, a.id
         FROM appointments a
         JOIN patients p ON a.patient_id = p.id
         JOIN doctors d ON a.doctor_id = d.id
-        WHERE a.date = ? AND a.status != 'cancelled'
+        WHERE a.date = %s AND a.status != 'cancelled'
         ORDER BY a.time
     """, (today,)).fetchall()
     conn.close()
@@ -513,7 +521,8 @@ async def mark_done(callback: CallbackQuery):
         return
     appt_id = int(callback.data.split("_")[1])
     conn = get_db()
-    conn.execute("UPDATE appointments SET status = 'done' WHERE id = ?", (appt_id,))
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("UPDATE appointments SET status = 'done' WHERE id = ?", (appt_id,))
     conn.commit()
     conn.close()
     await callback.answer("✅ Прийом завершено!")
@@ -526,13 +535,16 @@ async def admin_stats(message: Message):
     today = datetime.now().strftime("%Y-%m-%d")
     month_start = datetime.now().strftime("%Y-%m-01")
 
-    today_count = conn.execute(
-        "SELECT COUNT(*) FROM appointments WHERE date = ? AND status != 'cancelled'", (today,)
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    today_count = cur.execute(
+        "SELECT COUNT(*) FROM appointments WHERE date = %s AND status != 'cancelled'", (today,)
     ).fetchone()[0]
-    month_count = conn.execute(
-        "SELECT COUNT(*) FROM appointments WHERE date >= ? AND status != 'cancelled'", (month_start,)
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    month_count = cur.execute(
+        "SELECT COUNT(*) FROM appointments WHERE date >= %s AND status != 'cancelled'", (month_start,)
     ).fetchone()[0]
-    total_patients = conn.execute("SELECT COUNT(*) FROM patients").fetchone()[0]
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    total_patients = cur.execute("SELECT COUNT(*) FROM patients").fetchone()[0]
     conn.close()
 
     await message.answer(
@@ -570,27 +582,25 @@ async def handle_text(message: Message, state: FSMContext):
 # ─── Система нагадувань ───────────────────────────────────────
 
 async def send_reminders():
-    """Запускається кожні 30 хвилин. Надсилає нагадування за 24 год і 2 год."""
+    """Запускається кожні 30 хвилин."""
     while True:
         try:
             now = datetime.now()
-            in_24h = (now + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M")
-            in_2h = (now + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M")
-
             conn = get_db()
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
             # Нагадування за 24 години
-            rows_24 = conn.execute("""
+            t_from = (now + timedelta(hours=23, minutes=30)).strftime("%Y-%m-%d %H:%M")
+            t_to = (now + timedelta(hours=24, minutes=30)).strftime("%Y-%m-%d %H:%M")
+            cur.execute("""
                 SELECT a.id, a.time, a.date, p.telegram_id, p.full_name, d.name as doctor_name
                 FROM appointments a
                 JOIN patients p ON a.patient_id = p.id
                 JOIN doctors d ON a.doctor_id = d.id
                 WHERE a.reminder_24h = 0 AND a.status = 'pending'
-                  AND datetime(a.date || ' ' || a.time) BETWEEN ? AND ?
-            """, (
-                (now + timedelta(hours=23, minutes=30)).strftime("%Y-%m-%d %H:%M"),
-                (now + timedelta(hours=24, minutes=30)).strftime("%Y-%m-%d %H:%M")
-            )).fetchall()
+                  AND (a.date || ' ' || a.time) BETWEEN %s AND %s
+            """, (t_from, t_to))
+            rows_24 = cur.fetchall()
 
             for r in rows_24:
                 if r["telegram_id"]:
@@ -600,187 +610,49 @@ async def send_reminders():
                             r["telegram_id"],
                             f"🔔 *Нагадування!*\n\n"
                             f"Завтра о *{r['time']}* у вас прийом:\n"
-                            f"👨‍⚕️ {r['doctor_name']}\n"
+                            f"👨\u200d⚕️ {r['doctor_name']}\n"
                             f"📅 {d}\n\n"
-                            f"📍 Family Dentists, вул. Незалежності 15\n\n"
-                            f"Якщо не зможете прийти — скасуйте запис у боті 🙏",
+                            f"📍 Family Dentists, вул. Незалежності 15",
                             parse_mode="Markdown"
                         )
-                        conn.execute("UPDATE appointments SET reminder_24h = 1 WHERE id = ?", (r["id"],))
+                        cur.execute("UPDATE appointments SET reminder_24h = 1 WHERE id = %s", (r["id"],))
                     except Exception as e:
-                        logging.warning(f"Не вдалося надіслати нагадування: {e}")
+                        logging.warning(f"Нагадування 24h: {e}")
 
             # Нагадування за 2 години
-            rows_2 = conn.execute("""
+            t_from2 = (now + timedelta(hours=1, minutes=45)).strftime("%Y-%m-%d %H:%M")
+            t_to2 = (now + timedelta(hours=2, minutes=15)).strftime("%Y-%m-%d %H:%M")
+            cur.execute("""
                 SELECT a.id, a.time, a.date, p.telegram_id, d.name as doctor_name
                 FROM appointments a
                 JOIN patients p ON a.patient_id = p.id
                 JOIN doctors d ON a.doctor_id = d.id
                 WHERE a.reminder_2h = 0 AND a.status IN ('pending', 'confirmed')
-                  AND datetime(a.date || ' ' || a.time) BETWEEN ? AND ?
-            """, (
-                (now + timedelta(hours=1, minutes=45)).strftime("%Y-%m-%d %H:%M"),
-                (now + timedelta(hours=2, minutes=15)).strftime("%Y-%m-%d %H:%M")
-            )).fetchall()
+                  AND (a.date || ' ' || a.time) BETWEEN %s AND %s
+            """, (t_from2, t_to2))
+            rows_2 = cur.fetchall()
 
             for r in rows_2:
                 if r["telegram_id"]:
                     try:
                         await bot.send_message(
                             r["telegram_id"],
-                            f"⏰ *Нагадування за 2 години!*\n\n"
-                            f"Сьогодні о *{r['time']}* у вас прийом до {r['doctor_name']}.\n\n"
+                            f"⏰ *За 2 години прийом!*\n\n"
+                            f"Сьогодні о *{r['time']}* до {r['doctor_name']}\n\n"
                             f"Чекаємо вас! 🦷",
                             parse_mode="Markdown"
                         )
-                        conn.execute("UPDATE appointments SET reminder_2h = 1 WHERE id = ?", (r["id"],))
+                        cur.execute("UPDATE appointments SET reminder_2h = 1 WHERE id = %s", (r["id"],))
                     except Exception as e:
-                        logging.warning(f"Не вдалося надіслати нагадування: {e}")
+                        logging.warning(f"Нагадування 2h: {e}")
 
-            conn.commit()
             conn.close()
-
         except Exception as e:
             logging.error(f"Помилка нагадувань: {e}")
 
-        await asyncio.sleep(1800)  # 30 хвилин
+        await asyncio.sleep(1800)
 
 
-# ─── Запуск ───────────────────────────────────────────────────
-
-
-@dp.callback_query(F.data.startswith("adm_confirm_"))
-async def admin_confirm(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔ Доступ заборонено")
-        return
-    appt_id = int(callback.data.split("_")[2])
-    conn = get_db()
-    appt = conn.execute("""
-        SELECT a.*, p.telegram_id, p.full_name, d.name as doctor_name
-        FROM appointments a
-        JOIN patients p ON a.patient_id = p.id
-        JOIN doctors d ON a.doctor_id = d.id
-        WHERE a.id = ?
-    """, (appt_id,)).fetchone()
-    conn.execute("UPDATE appointments SET status='confirmed' WHERE id=?", (appt_id,))
-    conn.commit()
-    conn.close()
-    await callback.message.edit_text(
-        callback.message.text + "\n\n✅ *Підтверджено!*",
-        parse_mode="Markdown"
-    )
-    if appt and appt["telegram_id"]:
-        d = datetime.strptime(appt["date"], "%Y-%m-%d").strftime("%d.%m.%Y")
-        try:
-            await bot.send_message(
-                appt["telegram_id"],
-                f"✅ *Ваш запис підтверджено!*\n\n"
-                f"👨\u200d⚕️ {appt['doctor_name']}\n"
-                f"📅 {d} о {appt['time']}\n\n"
-                f"Чекаємо вас! 🦷",
-                parse_mode="Markdown"
-            )
-        except Exception:
-            pass
-
-@dp.callback_query(F.data.startswith("adm_cancel_"))
-async def admin_cancel(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔ Доступ заборонено")
-        return
-    appt_id = int(callback.data.split("_")[2])
-    conn = get_db()
-    appt = conn.execute("""
-        SELECT a.*, p.telegram_id, d.name as doctor_name
-        FROM appointments a
-        JOIN patients p ON a.patient_id = p.id
-        JOIN doctors d ON a.doctor_id = d.id
-        WHERE a.id = ?
-    """, (appt_id,)).fetchone()
-    conn.execute("UPDATE appointments SET status='cancelled' WHERE id=?", (appt_id,))
-    conn.commit()
-    conn.close()
-    await callback.message.edit_text(
-        callback.message.text + "\n\n❌ *Відхилено*",
-        parse_mode="Markdown"
-    )
-    if appt and appt["telegram_id"]:
-        try:
-            await bot.send_message(
-                appt["telegram_id"],
-                f"😔 На жаль, ваш запис відхилено.\n\n"
-                f"Спробуйте обрати інший час через 📅 Записатися"
-            )
-        except Exception:
-            pass
-
-
-@dp.callback_query(F.data.startswith("adm_confirm_"))
-async def admin_confirm(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔ Доступ заборонено")
-        return
-    appt_id = int(callback.data.split("_")[2])
-    conn = get_db()
-    appt = conn.execute("""
-        SELECT a.*, p.telegram_id, p.full_name, d.name as doctor_name
-        FROM appointments a
-        JOIN patients p ON a.patient_id = p.id
-        JOIN doctors d ON a.doctor_id = d.id
-        WHERE a.id = ?
-    """, (appt_id,)).fetchone()
-    conn.execute("UPDATE appointments SET status='confirmed' WHERE id=?", (appt_id,))
-    conn.commit()
-    conn.close()
-    await callback.message.edit_text(
-        callback.message.text + "\n\n✅ *Підтверджено!*",
-        parse_mode="Markdown"
-    )
-    if appt and appt["telegram_id"]:
-        d = datetime.strptime(appt["date"], "%Y-%m-%d").strftime("%d.%m.%Y")
-        try:
-            await bot.send_message(
-                appt["telegram_id"],
-                f"✅ *Ваш запис підтверджено!*\n\n"
-                f"👨\u200d⚕️ {appt['doctor_name']}\n"
-                f"📅 {d} о {appt['time']}\n\n"
-                f"Чекаємо вас! 🦷",
-                parse_mode="Markdown"
-            )
-        except Exception:
-            pass
-
-@dp.callback_query(F.data.startswith("adm_cancel_"))
-async def admin_cancel(callback: CallbackQuery):
-    if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔ Доступ заборонено")
-        return
-    appt_id = int(callback.data.split("_")[2])
-    conn = get_db()
-    appt = conn.execute("""
-        SELECT a.*, p.telegram_id, d.name as doctor_name
-        FROM appointments a
-        JOIN patients p ON a.patient_id = p.id
-        JOIN doctors d ON a.doctor_id = d.id
-        WHERE a.id = ?
-    """, (appt_id,)).fetchone()
-    conn.execute("UPDATE appointments SET status='cancelled' WHERE id=?", (appt_id,))
-    conn.commit()
-    conn.close()
-    await callback.message.edit_text(
-        callback.message.text + "\n\n❌ *Відхилено*",
-        parse_mode="Markdown"
-    )
-    if appt and appt["telegram_id"]:
-        try:
-            await bot.send_message(
-                appt["telegram_id"],
-                f"😔 На жаль, ваш запис відхилено.\n\n"
-                f"Спробуйте обрати інший час через 📅 Записатися"
-            )
-        except Exception:
-            pass
 
 async def main():
     init_db()
