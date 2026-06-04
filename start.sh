@@ -1,2 +1,2 @@
 #!/bin/bash
-python main.py
+supervisord -c supervisord.conf
