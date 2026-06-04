@@ -116,3 +116,8 @@ INSERT INTO faq (keyword, answer) VALUES
     ('гарантія', 'На всі послуги надаємо гарантію згідно з договором.'),
     ('страховка', 'Працюємо з більшістю страхових компаній.')
 ON CONFLICT DO NOTHING;
+
+-- Видаляємо дублікати лікарів (залишаємо тільки перший запис кожного)
+DELETE FROM doctors WHERE id NOT IN (
+    SELECT MIN(id) FROM doctors GROUP BY name
+);
