@@ -347,7 +347,6 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("UPDATE patients SET phone = %s WHERE id = %s", (phone, patient["id"]))
-        conn.commit()
         conn.close()
 
     save_appointment(patient["id"], data["doctor_id"], data["date"], data["time"], data["reason"])
