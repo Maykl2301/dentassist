@@ -461,19 +461,9 @@ def webhook():
             print(f"Webhook error: {e}")
     asyncio.run(process())
     return 'ok', 200
-    async def process():
-        from bot.bot import dp, bot
-        try:
-            update = Update.model_validate(data, context={"bot": bot})
-            await dp.feed_update(bot, update)
-        except Exception as e:
-            import traceback
-            print(f"Webhook error: {e}")
-            traceback.print_exc()
-    asyncio.run(process())
-    return 'ok', 200
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    from waitress import serve
+    port = int(os.getenv('PORT', 5000))
+    serve(app, host='0.0.0.0', port=port)
