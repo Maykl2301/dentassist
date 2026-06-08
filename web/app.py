@@ -451,7 +451,8 @@ def webhook():
     from aiogram.types import Update
     async def process():
         from bot.bot import dp, bot
-        data = request.get_json()
+        data = request.get_json(force=True, silent=True)
+    if not data: return 'no data', 400
         update = Update.model_validate(data, context={"bot": bot})
         await dp.feed_update(bot, update)
     asyncio.run(process())
