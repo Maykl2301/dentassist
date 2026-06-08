@@ -449,12 +449,27 @@ def api_doctors():
 def webhook():
     import asyncio
     from aiogram.types import Update
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return 'ok', 200
     async def process():
         from bot.bot import dp, bot
-        data = request.get_json(force=True, silent=True)
-    if not data: return 'no data', 400
-        update = Update.model_validate(data, context={"bot": bot})
-        await dp.feed_update(bot, update)
+        try:
+            update = Update.model_validate(data, context={"bot": bot})
+            await dp.feed_update(bot, update)
+        except Exception as e:
+            print(f"Webhook error: {e}")
+    asyncio.run(process())
+    return 'ok', 200
+    async def process():
+        from bot.bot import dp, bot
+        try:
+            update = Update.model_validate(data, context={"bot": bot})
+            await dp.feed_update(bot, update)
+        except Exception as e:
+            import traceback
+            print(f"Webhook error: {e}")
+            traceback.print_exc()
     asyncio.run(process())
     return 'ok', 200
 
